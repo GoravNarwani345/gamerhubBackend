@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, userInfo } = require('../controllers/user');
+const { register, login, userInfo, forgotPassword, verifyOTP, resetPassword } = require('../controllers/user');
 const multer = require('multer');
 const path = require('path');
 const auth = require('../middleware/auth');
@@ -25,5 +25,14 @@ router.post('/login', login);
 
 // User profile route
 router.get('/user', auth, userInfo);
+
+// Forgot Password - Send OTP
+router.post('/forgot-password', forgotPassword);
+
+// Verify OTP
+router.post('/verify-otp', verifyOTP);
+
+// Reset Password
+router.post('/reset-password', resetPassword);
 
 module.exports = router;

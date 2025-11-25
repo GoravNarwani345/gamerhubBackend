@@ -10,6 +10,11 @@ const userSchema = new mongoose.Schema({
    googleId: { type: String },
    accesToken: { type: String },
    refreshToken: { type: String },
+   followers: { type: Number, default: 0 },
+   following: { type: Number, default: 0 },
+   isStreamer: { type: Boolean, default: false },
+   streamTitle: { type: String, default: '' },
+   streamCategory: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now } 
 });
 
