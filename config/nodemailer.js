@@ -5,15 +5,15 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     service: 'gmail', // You can use other services like SendGrid, Outlook, etc.
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
+        user: process.env.EMAIL_USER || "narwanigorav3@gmail.com",
+        pass: process.env.EMAIL_PASSWORD || "sycauxgltfvqkhlh"
     }
 });
 
 // Function to send OTP email
 const sendOTPEmail = async (email, otp) => {
     const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: process.env.EMAIL_USER || "narwanigorav3@gmail.com",
         to: email,
         subject: 'OTP for Password Reset - GamerHub',
         html: `

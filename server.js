@@ -2,6 +2,7 @@ require("dotenv").config({slient: true});
 require("./config/db")(); // Connect to the database
 const express = require("express");
 const http = require("http");
+const cors = require("cors");
 const userRoutes = require("./routes/user");
 const chatRoutes = require("./routes/chatroute");
 const streamRoutes = require("./routes/streams");
@@ -14,6 +15,13 @@ const streamSocket = require("./SOCKETS/stream");
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS configuration
+app.use(cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    credentials: true
+}));
 
 // Initialize socket.io
 const io = socket.init(server);

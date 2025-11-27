@@ -539,3 +539,114 @@ window.addEventListener('beforeunload', () => {
 ---
 
 This provides complete, production-ready examples for implementing the GamerHub streaming platform! 🎉
+
+---
+
+## 📡 Complete API Endpoints Reference
+
+### Authentication Endpoints
+| Method | Endpoint | Auth | Body | Description |
+|--------|----------|------|------|-------------|
+| POST | `/api/users/register` | ❌ | `{username, email, password}` | User registration |
+| POST | `/api/users/login` | ❌ | `{email, password}` | User login |
+| GET | `/api/users/user` | ✅ | - | Get current user profile |
+| POST | `/api/users/forgot-password` | ❌ | `{email}` | Request password reset OTP |
+| POST | `/api/users/verify-otp` | ❌ | `{email, otp}` | Verify OTP for password reset |
+| POST | `/api/users/reset-password` | ❌ | `{email, otp, newPassword}` | Reset password with OTP |
+
+### Stream Endpoints
+| Method | Endpoint | Auth | Body | Description |
+|--------|----------|------|------|-------------|
+| GET | `/api/streams/live` | ❌ | - | Get all live streams |
+| GET | `/api/streams/:streamId` | ❌ | - | Get stream details by ID |
+| POST | `/api/streams/create` | ✅ | `{title, description?, category}` | Create new stream |
+| GET | `/api/streams/user/streams` | ✅ | - | Get current user's streams |
+| PUT | `/api/streams/:streamId` | ✅ | `{title?, description?, category?}` | Update stream information |
+| GET | `/api/streams/:streamId/analytics` | ✅ | - | Get stream analytics |
+| GET | `/api/streams/category/:category` | ❌ | - | Get streams by category |
+| GET | `/api/streams/search` | ❌ | - | Search streams by query |
+
+### Profile Endpoints
+| Method | Endpoint | Auth | Body | Description |
+|--------|----------|------|------|-------------|
+| GET | `/api/profiles/:userId` | ❌ | - | Get any user profile |
+| GET | `/api/profiles/me/profile` | ✅ | - | Get current user profile |
+| PUT | `/api/profiles/me/update` | ✅ | `{username?, email?, bio?, avatar?}` | Update current user profile |
+| GET | `/api/profiles/streamer/:streamerId` | ❌ | - | Get streamer profile for modal |
+| GET | `/api/profiles/viewer/:viewerId` | ❌ | - | Get viewer profile for modal |
+| POST | `/api/profiles/:userId/follow` | ✅ | - | Follow/unfollow a user |
+| GET | `/api/profiles/trending/top-streamers` | ❌ | - | Get top streamers |
+
+### Chat Endpoints
+| Method | Endpoint | Auth | Body | Description |
+|--------|----------|------|------|-------------|
+| POST | `/api/chat/send` | ❌ | `{streamId, userId, messageText, username}` | Send message (handled via Socket.io) |
+| GET | `/api/chat/:streamId` | ❌ | - | Get messages for a stream |
+| PUT | `/api/chat/:id` | ❌ | `{messageText}` | Update message |
+| DELETE | `/api/chat/:id` | ❌ | - | Delete message |
+
+### Highlight Endpoints
+| Method | Endpoint | Auth | Body | Description |
+|--------|----------|------|------|-------------|
+| POST | `/api/highlights` | ✅ | `{streamId, title, description?, clipUrl, timestamp}` | Create highlight |
+| GET | `/api/highlights/stream/:streamId` | ❌ | - | Get highlights for a stream |
+| GET | `/api/highlights/streamer/:streamerId` | ❌ | - | Get highlights for a streamer |
+
+### Profile Modal Endpoints
+| Method | Endpoint | Auth | Body | Description |
+|--------|----------|------|------|-------------|
+| POST | `/api/profile-modal/me` | ✅ | `{modalData}` | Create/update profile modal |
+| GET | `/api/profile-modal/:userId` | ❌ | - | Get profile modal by user ID |
+
+---
+
+### Socket.io Events
+
+#### Streaming Events
+| Event | Direction | Description |
+|-------|-----------|-------------|
+| `startStream` | Client → Server | Start broadcasting a stream |
+| `joinStream` | Client → Server | Viewer joins a stream |
+| `leaveStream` | Client → Server | Viewer leaves a stream |
+| `endStream` | Client → Server | Streamer ends the stream |
+| `publishStreamVideo` | Client → Server | Publish video source URL |
+| `streamLive` | Server → Clients | Notify all users stream went live |
+| `streamerProfile` | Server → Client | Send streamer info to viewer |
+| `viewerCountUpdated` | Server → Clients | Update viewer count in room |
+| `streamEnded` | Server → Clients | Notify stream has ended |
+| `streamVideo` | Server → Clients | Broadcast video URL to viewers |
+
+#### Chat Events
+| Event | Direction | Description |
+|-------|-----------|-------------|
+| `sendMessage` | Client → Server | Send a chat message |
+| `newMessage` | Server → Clients | Broadcast new message to room |
+| `likeMessage` | Client → Server | Like a message |
+| `messageLiked` | Server → Clients | Update like count |
+| `replyToMessage` | Client → Server | Reply to a message |
+| `messageReply` | Server → Clients | Broadcast reply |
+| `updateMessage` | Client → Server | Edit a message |
+| `messageUpdated` | Server → Clients | Broadcast message update |
+| `deleteMessage` | Client → Server | Delete a message |
+| `messageDeleted` | Server → Clients | Notify message deletion |
+
+#### Profile Events
+| Event | Direction | Description |
+|-------|-----------|-------------|
+| `getStreamerProfile` | Client → Server | Request streamer profile |
+| `streamerProfile` | Server → Client | Return streamer profile data |
+| `getViewerProfile` | Client → Server | Request viewer profile |
+| `viewerProfile` | Server → Client | Return viewer profile data |
+| `followStreamer` | Client → Server | Follow a streamer |
+| `streamerFollowed` | Server → Client | Confirm follow action |
+
+#### Highlight Events
+| Event | Direction | Description |
+|-------|-----------|-------------|
+| `saveHighlight` | Client → Server | Save a highlight clip |
+| `highlightSaved` | Server → Clients | Confirm highlight saved |
+| `highlightAck` | Server → Client | Acknowledge highlight creation |
+
+---
+
+**Note:** All endpoints use base URL `http://localhost:8000` in development. Authentication endpoints marked with ✅ require `Authorization: Bearer <jwt_token>` header.
