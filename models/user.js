@@ -15,7 +15,14 @@ const userSchema = new mongoose.Schema({
    isStreamer: { type: Boolean, default: false },
    streamTitle: { type: String, default: '' },
    streamCategory: { type: String, default: '' },
-  createdAt: { type: Date, default: Date.now } 
+   location: { type: String, default: '' },
+   bio: { type: String, default: '' },
+   avatar: { type: String, default: '' },
+   favoriteGames: { type: [String], default: [] },
+   socials: { type: Object, default: {} },
+   badges: { type: [String], default: [] },
+   featuredVideoUrl: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now }
 });
 
 // Hash password before saving

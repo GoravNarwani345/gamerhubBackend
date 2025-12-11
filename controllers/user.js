@@ -71,18 +71,32 @@ const login=async (req, res) => {
 
 // Get user profile
 const userInfo=async (req, res) => {
-    const token = req.header('Authorization').replace('Bearer ', '');       
+    const token = req.header('Authorization').replace('Bearer ', '');
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.userId).select('username email createdAt');
+        const user = await User.findById(decoded.userId).select(
+            'username email followers following isStreamer streamTitle streamCategory location createdAt isVerified'
+        );
         if (!user) {
             return res.status(404).json({ msg: 'User not found' });
         }
-        res.json(user);
+        res.json({
+            userId: user._id,
+            username: user.username,
+            email: user.email,
+            followers: user.followers,
+            following: user.following,
+            isStreamer: user.isStreamer,
+            streamTitle: user.streamTitle,
+            streamCategory: user.streamCategory,
+            location: user.location,
+            isVerified: user.isVerified,
+            createdAt: user.createdAt
+        });
     } catch (err) {
         console.error(err.message);
         res.status(401).json({ msg: 'Token is not valid' });
-    }   
+    }
 };
 //get all users
 const allUser=async (req, res) => {
@@ -232,6 +246,214 @@ const resetPassword = async (req, res) => {
     }
 };
 
+// Get user profile by ID
+const getProfile = async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await User.findById(userId).select(
+            'username email bio avatar followers following isStreamer streamTitle streamCategory location favoriteGames socials badges featuredVideoUrl createdAt isVerified'
+        );
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Get current user profile
+const getMyProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId).select(
+            'username email bio avatar followers following isStreamer streamTitle streamCategory location favoriteGames socials badges featuredVideoUrl createdAt isVerified'
+        );
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Update profile information
+const updateProfileInfo = async (req, res) => {
+    const { username, bio, streamTitle, streamCategory, location, favoriteGames } = req.body;
+    try {
+        const user = await User.findById(req.user.userId);
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        user.username = username || user.username;
+        user.bio = bio || user.bio;
+        user.streamTitle = streamTitle || user.streamTitle;
+        user.streamCategory = streamCategory || user.streamCategory;
+        user.location = location || user.location;
+        user.favoriteGames = favoriteGames || user.favoriteGames;
+
+        await user.save();
+        res.json({ msg: 'Profile updated successfully', user });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Get streamer profile
+const getStreamerProfile = async (req, res) => {
+    const { streamerId } = req.params;
+    try {
+        const streamer = await User.findById(streamerId).select(
+            'username avatar bio followers following isStreamer streamTitle streamCategory joinedDate'
+        );
+        if (!streamer || !streamer.isStreamer) {
+            return res.status(404).json({ msg: 'Streamer not found' });
+        }
+        res.json({
+            streamerId: streamer._id,
+            username: streamer.username,
+            avatar: streamer.avatar,
+            bio: streamer.bio,
+            followers: streamer.followers,
+            following: streamer.following,
+            isStreamer: streamer.isStreamer,
+            streamTitle: streamer.streamTitle,
+            streamCategory: streamer.streamCategory,
+            joinedDate: streamer.createdAt
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Get viewer profile
+const getViewerProfile = async (req, res) => {
+    const { viewerId } = req.params;
+    try {
+        const viewer = await User.findById(viewerId).select(
+            'username avatar bio followers following joinedDate'
+        );
+        if (!viewer) {
+            return res.status(404).json({ msg: 'Viewer not found' });
+        }
+        res.json({
+            userId: viewer._id,
+            username: viewer.username,
+            avatar: viewer.avatar,
+            bio: viewer.bio,
+            followers: viewer.followers,
+            following: viewer.following,
+            joinedDate: viewer.createdAt
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Follow/unfollow user
+const followUser = async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const currentUser = await User.findById(req.user.userId);
+        const targetUser = await User.findById(userId);
+
+        if (!targetUser) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        const isFollowing = currentUser.following.includes(userId);
+
+        if (isFollowing) {
+            // Unfollow
+            currentUser.following = currentUser.following.filter(id => id.toString() !== userId);
+            targetUser.followers = targetUser.followers.filter(id => id.toString() !== req.user.userId);
+            await currentUser.save();
+            await targetUser.save();
+            res.json({ msg: 'User unfollowed successfully', followers: targetUser.followers.length });
+        } else {
+            // Follow
+            currentUser.following.push(userId);
+            targetUser.followers.push(req.user.userId);
+            await currentUser.save();
+            await targetUser.save();
+            res.json({ msg: 'User followed successfully', followers: targetUser.followers.length });
+        }
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Get top streamers
+const getTopStreamers = async (req, res) => {
+    try {
+        const topStreamers = await User.find({ isStreamer: true })
+            .select('username avatar bio followers streamTitle streamCategory')
+            .sort({ followers: -1 })
+            .limit(10);
+
+        res.json(topStreamers);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Upsert profile modal
+const upsertProfileModal = async (req, res) => {
+    const { displayName, avatar, bio, socials, badges, featuredVideoUrl } = req.body;
+    try {
+        const user = await User.findById(req.user.userId);
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        user.username = displayName || user.username;
+        user.avatar = avatar || user.avatar;
+        user.bio = bio || user.bio;
+        user.socials = socials || user.socials;
+        user.badges = badges || user.badges;
+        user.featuredVideoUrl = featuredVideoUrl || user.featuredVideoUrl;
+
+        await user.save();
+        res.json({ msg: 'Profile modal updated successfully', user });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
+// Get profile modal
+const getProfileModal = async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await User.findById(userId).select(
+            'username avatar bio socials badges featuredVideoUrl'
+        );
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+        res.json({
+            userId: user._id,
+            displayName: user.username,
+            avatar: user.avatar,
+            bio: user.bio,
+            socials: user.socials,
+            badges: user.badges,
+            featuredVideoUrl: user.featuredVideoUrl
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -241,5 +463,14 @@ module.exports = {
     allUser,
     forgotPassword,
     verifyOTP,
-    resetPassword
+    resetPassword,
+    getProfile,
+    getMyProfile,
+    updateProfileInfo,
+    getStreamerProfile,
+    getViewerProfile,
+    followUser,
+    getTopStreamers,
+    upsertProfileModal,
+    getProfileModal
 };

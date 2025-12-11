@@ -178,38 +178,52 @@ i:\gamerhub\backend\
 
 ## 🔌 API Endpoints
 
-### Authentication (11 endpoints)
+### Authentication & User Management (15 endpoints)
 ```
-POST   /api/users/register              - Sign up
-POST   /api/users/login                 - Login
-POST   /api/users/forgot-password       - Reset request
-POST   /api/users/verify-otp            - OTP verification
-POST   /api/users/reset-password        - New password
-GET    /api/users/user                  - Get profile (auth)
-PUT    /api/users/                      - Update profile (auth)
+POST   /api/users/register              - User registration with OTP
+POST   /api/users/login                 - User login
+GET    /api/users/userdata              - Get user profile (auth)
+POST   /api/users/forgot-password       - Request password reset OTP
+POST   /api/users/verify-otp            - Verify OTP code
+POST   /api/users/reset-password        - Reset password with token
+
+GET    /api/users/:userId               - Get user profile by ID
+GET    /api/users/me/profile            - Get current user profile (auth)
+PUT    /api/users/me/update             - Update profile info (auth)
+PUT    /api/users/me/avatar             - Update user avatar (auth)
+GET    /api/users/streamer/:streamerId  - Get streamer profile
+GET    /api/users/viewer/:viewerId      - Get viewer profile
+POST   /api/users/:userId/follow        - Follow/unfollow user (auth)
+GET    /api/users/trending/top-streamers - Get top streamers
+POST   /api/users/profile-modals/me     - Update profile modal (auth)
+GET    /api/users/profile-modals/:userId - Get profile modal
 ```
 
-### Streams (8 endpoints)
+### Streams Management (8 endpoints)
 ```
-GET    /api/streams/live                - All live streams
-GET    /api/streams/:streamId           - Stream details
-POST   /api/streams/create              - Create (auth)
-GET    /api/streams/user/streams        - User's streams (auth)
-PUT    /api/streams/:streamId           - Update (auth)
-GET    /api/streams/:streamId/analytics - Analytics (auth)
-GET    /api/streams/category/:category  - By category
-GET    /api/streams/search?query=text   - Search
+GET    /api/streams/live                - Get all live streams
+GET    /api/streams/:streamId           - Get stream details
+POST   /api/streams/create              - Create new stream (auth)
+GET    /api/streams/user/streams        - Get user's streams (auth)
+PUT    /api/streams/:streamId           - Update stream (auth)
+GET    /api/streams/:streamId/analytics - Get stream analytics (auth)
+GET    /api/streams/category/:category  - Get streams by category
+GET    /api/streams/search              - Search streams
 ```
 
-### Profiles (7 endpoints)
+### Chat System (4 endpoints)
 ```
-GET    /api/profiles/:userId            - User profile
-GET    /api/profiles/me/profile         - Current user (auth)
-PUT    /api/profiles/me/update          - Update (auth)
-GET    /api/profiles/streamer/:id       - Streamer modal
-GET    /api/profiles/viewer/:id         - Viewer modal
-POST   /api/profiles/:userId/follow     - Follow (auth)
-GET    /api/profiles/trending/top-streamers - Top 10
+POST   /api/chat/send                   - Send message
+GET    /api/chat/:streamId              - Get messages for stream
+PUT    /api/chat/:id                    - Update message
+DELETE /api/chat/:id                    - Delete message
+```
+
+### Highlights (3 endpoints)
+```
+POST   /api/highlights/                 - Create highlight (auth)
+GET    /api/highlights/stream/:streamId - Get highlights for stream
+GET    /api/highlights/streamer/:streamerId - Get highlights for streamer
 ```
 
 ---

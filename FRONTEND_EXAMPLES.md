@@ -18,6 +18,43 @@ let currentUserId = null;
 let currentStreamId = null;
 let currentToken = null;
 
+// Initialize authentication state on page load
+function initializeAuth() {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    currentToken = token;
+    // Decode token to get userId
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      currentUserId = payload.userId;
+      console.log('✅ Restored authentication from localStorage');
+    } catch (error) {
+      console.error('Invalid token in localStorage');
+      localStorage.removeItem('authToken');
+    }
+  }
+}
+
+// Save authentication state
+function saveAuthState(token) {
+  localStorage.setItem('authToken', token);
+  currentToken = token;
+  // Decode token to get userId
+  const payload = JSON.parse(atob(token.split('.')[1]));
+  currentUserId = payload.userId;
+}
+
+// Clear authentication state
+function clearAuthState() {
+  localStorage.removeItem('authToken');
+  currentToken = null;
+  currentUserId = null;
+  currentStreamId = null;
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initializeAuth);
+
 // Check connection
 socket.on('connect', () => {
   console.log('✅ Connected to server:', socket.id);
@@ -141,12 +178,12 @@ socket.on('streamEnded', (data) => {
 async function getLiveStreams() {
   const response = await fetch('http://localhost:8000/api/streams/live');
   const streams = await response.json();
-  
+
   console.log(`📺 ${streams.length} live streams`);
   streams.forEach(stream => {
     console.log(`- ${stream.title} (${stream.viewersCount} viewers)`);
   });
-  
+
   return streams;
 }
 
@@ -334,7 +371,7 @@ async function followUser(userId) {
       }
     }
   );
-  
+
   if (response.ok) {
     console.log('User followed!');
     updateFollowButton(true);
@@ -347,7 +384,7 @@ async function getTopStreamers() {
     'http://localhost:8000/api/profiles/trending/top-streamers'
   );
   const streamers = await response.json();
-  
+
   // Display in UI
   displayTopStreamers(streamers);
 }
@@ -365,8 +402,24 @@ async function updateMyProfile(updates) {
       body: JSON.stringify(updates)
     }
   );
-  
+
   return response.json();
+}
+
+// Example profile update with new fields
+async function updateProfileWithNewFields() {
+  const updates = {
+    username: 'newusername',
+    bio: 'Updated bio with gaming interests',
+    avatar: 'new-avatar-url',
+    streamTitle: 'My Gaming Stream',
+    streamCategory: 'RPG',
+    location: 'New York, USA',
+    favoriteGames: ['The Witcher 3', 'Cyberpunk 2077', 'Elden Ring']
+  };
+
+  const result = await updateMyProfile(updates);
+  console.log('Profile updated:', result);
 }
 ```
 
@@ -385,7 +438,7 @@ async function getStreamAnalytics(streamId) {
       }
     }
   );
-  
+
   const analytics = await response.json();
   console.log('📊 Stream Analytics:');
   console.log(`Peak Viewers: ${analytics.peakViewers}`);
@@ -393,7 +446,7 @@ async function getStreamAnalytics(streamId) {
   console.log(`Total Comments: ${analytics.totalComments}`);
   console.log(`Total Likes: ${analytics.totalLikes}`);
   console.log(`Duration: ${analytics.duration}ms`);
-  
+
   return analytics;
 }
 

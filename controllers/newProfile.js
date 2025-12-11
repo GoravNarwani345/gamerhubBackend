@@ -2,8 +2,8 @@ require('dotenv').config();
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 
-// Get user profile
-const getProfile = async (req, res) => {
+// Get user profile (new implementation)
+const getNewProfile = async (req, res) => {
     const { userId } = req.params;
 
     try {
@@ -20,8 +20,8 @@ const getProfile = async (req, res) => {
     }
 };
 
-// Get current user profile (with auth)
-const getMyProfile = async (req, res) => {
+// Get current user profile (with auth) - new implementation
+const getMyNewProfile = async (req, res) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     try {
@@ -43,8 +43,8 @@ const getMyProfile = async (req, res) => {
     }
 };
 
-// Update profile information
-const updateProfileInfo = async (req, res) => {
+// Update profile information - new implementation
+const updateNewProfileInfo = async (req, res) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     const { username, bio, avatar, streamTitle, streamCategory, location, favoriteGames } = req.body;
 
@@ -74,7 +74,6 @@ const updateProfileInfo = async (req, res) => {
         if (streamTitle) user.streamTitle = streamTitle;
         if (streamCategory) user.streamCategory = streamCategory;
         if (location !== undefined) user.location = location;
-        if (favoriteGames !== undefined) user.favoriteGames = favoriteGames;
 
         await user.save();
 
@@ -88,30 +87,30 @@ const updateProfileInfo = async (req, res) => {
     }
 };
 
-// Get streamer profile (for modal/popup)
-const getStreamerProfile = async (req, res) => {
-    const { streamerId } = req.params;
+// Create new profile (if needed)
+const createNewProfile = async (req, res) => {
+    const { username, email, password, bio, avatar } = req.body;
 
     try {
-        const user = await User.findById(streamerId).select(
-            'username avatar bio followers following isStreamer streamTitle streamCategory createdAt'
-        );
-
-        if (!user) {
-            return res.status(404).json({ msg: 'Streamer not found' });
+        // Check if user already exists
+        let user = await User.findOne({ email });
+        if (user) {
+            return res.status(400).json({ msg: 'User already exists' });
         }
 
+        user = new User({
+            username,
+            email,
+            password,
+            bio,
+            avatar
+        });
+
+        await user.save();
+
         res.json({
-            streamerId: user._id,
-            username: user.username,
-            avatar: user.avatar,
-            bio: user.bio,
-            followers: user.followers,
-            following: user.following,
-            isStreamer: user.isStreamer,
-            streamTitle: user.streamTitle,
-            streamCategory: user.streamCategory,
-            joinedDate: user.createdAt
+            msg: 'Profile created successfully',
+            user: user.toObject()
         });
     } catch (err) {
         console.error(err.message);
@@ -119,38 +118,9 @@ const getStreamerProfile = async (req, res) => {
     }
 };
 
-// Get viewer profile
-const getViewerProfile = async (req, res) => {
-    const { viewerId } = req.params;
-
-    try {
-        const user = await User.findById(viewerId).select(
-            'username avatar bio followers following createdAt'
-        );
-
-        if (!user) {
-            return res.status(404).json({ msg: 'User not found' });
-        }
-
-        res.json({
-            userId: user._id,
-            username: user.username,
-            avatar: user.avatar,
-            bio: user.bio,
-            followers: user.followers,
-            following: user.following,
-            joinedDate: user.createdAt
-        });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ msg: 'Server error' });
-    }
-};
-
-// Follow/Unfollow user
-const followUser = async (req, res) => {
+// Delete profile
+const deleteNewProfile = async (req, res) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    const { userId } = req.params;
 
     try {
         if (!token) {
@@ -158,43 +128,13 @@ const followUser = async (req, res) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        if (decoded.userId === userId) {
-            return res.status(400).json({ msg: 'Cannot follow yourself' });
-        }
+        const user = await User.findByIdAndDelete(decoded.userId);
 
-        const targetUser = await User.findById(userId);
-        if (!targetUser) {
+        if (!user) {
             return res.status(404).json({ msg: 'User not found' });
         }
 
-        const currentUser = await User.findById(decoded.userId);
-        
-        // For demo, just increment followers
-        targetUser.followers += 1;
-        currentUser.following += 1;
-
-        await Promise.all([targetUser.save(), currentUser.save()]);
-
-        res.json({
-            msg: 'User followed successfully',
-            followers: targetUser.followers
-        });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ msg: 'Server error' });
-    }
-};
-
-// Get top streamers
-const getTopStreamers = async (req, res) => {
-    try {
-        const streamers = await User.find({ isStreamer: true })
-            .select('username avatar bio followers streamTitle streamCategory')
-            .sort({ followers: -1 })
-            .limit(10);
-
-        res.json(streamers);
+        res.json({ msg: 'Profile deleted successfully' });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ msg: 'Server error' });
@@ -202,11 +142,9 @@ const getTopStreamers = async (req, res) => {
 };
 
 module.exports = {
-    getProfile,
-    getMyProfile,
-    updateProfileInfo,
-    getStreamerProfile,
-    getViewerProfile,
-    followUser,
-    getTopStreamers
+    getNewProfile,
+    getMyNewProfile,
+    updateNewProfileInfo,
+    createNewProfile,
+    deleteNewProfile
 };
