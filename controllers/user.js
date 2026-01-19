@@ -6,14 +6,14 @@ const crypto = require('crypto');
 const { sendOTPEmail } = require('../config/nodemailer');
 
 // Register a new user
-const register=async (req, res) => {
-    const {username, email, password } = req.body;
+const register = async (req, res) => {
+    const { username, email, password } = req.body;
     try {
         let user = await User.find({ $or: [{ email }, { username }] });
         if (user.length) {
             return res.status(400).json({ msg: 'User already exists' });
         }
-        const useerCreate=await User.create({
+        const useerCreate = await User.create({
             username,
             email,
             password
@@ -21,7 +21,7 @@ const register=async (req, res) => {
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         // Set OTP and expiry (10 minutes)
         useerCreate.otp = otp;
         useerCreate.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
@@ -29,30 +29,29 @@ const register=async (req, res) => {
 
         // Send OTP email
         const emailSent = await sendOTPEmail(email, otp);
-        
+
         if (!emailSent) {
             return res.status(500).json({ msg: 'Failed to send OTP email' });
         }
 
         const token = jwt.sign({ userId: useerCreate._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.status(201).json({ 
+        res.status(201).json({
             msg: 'User registered successfully. OTP sent to email',
             token,
-            email 
+            email
         });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
     }
-   
+
 };
 
 // Login user
-const login=async (req, res) => {
+const login = async (req, res) => {
     const { email, password } = req.body;
     try {
-        const user = await User.find
-            ({ $or: [{ email }, { username: email }] });
+        const user = await User.find({ $or: [{ email }, { username: email }] });
         if (!user.length) {
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
@@ -70,7 +69,7 @@ const login=async (req, res) => {
 };
 
 // Get user profile
-const userInfo=async (req, res) => {
+const userInfo = async (req, res) => {
     const token = req.header('Authorization').replace('Bearer ', '');
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -99,17 +98,17 @@ const userInfo=async (req, res) => {
     }
 };
 //get all users
-const allUser=async (req, res) => {
+const allUser = async (req, res) => {
     try {
         const users = await User.find().select('username email createdAt');
         res.json(users);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
-    }   
+    }
 };
 // update user profile
-const updateProfile=async (req, res) => {
+const updateProfile = async (req, res) => {
     const token = req.header('Authorization').replace('Bearer ', '');
     const { username, email } = req.body;
     try {
@@ -125,12 +124,12 @@ const updateProfile=async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(401).json({ msg: 'Token is not valid' });
-    }   
+    }
 };
 //update user avtar
-const updateAvatar=async (req, res) => {
+const updateAvatar = async (req, res) => {
     const token = req.header('Authorization').replace('Bearer ', '');
-    const {avtar}=req.files;
+    const { avtar } = req.files;
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -159,7 +158,7 @@ const forgotPassword = async (req, res) => {
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         // Set OTP and expiry (10 minutes)
         user.otp = otp;
         user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
@@ -167,7 +166,7 @@ const forgotPassword = async (req, res) => {
 
         // Send OTP email
         const emailSent = await sendOTPEmail(email, otp);
-        
+
         if (!emailSent) {
             return res.status(500).json({ msg: 'Failed to send OTP email' });
         }
@@ -206,10 +205,10 @@ const verifyOTP = async (req, res) => {
             { expiresIn: '15m' }
         );
 
-        res.json({ 
+        res.json({
             msg: 'OTP verified successfully',
             resetToken,
-            userId: user._id 
+            userId: user._id
         });
     } catch (err) {
         console.error(err.message);
@@ -223,7 +222,7 @@ const resetPassword = async (req, res) => {
     try {
         // Verify reset token
         const decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
-        
+
         // Find user
         let user = await User.findById(decoded.userId);
         if (!user) {

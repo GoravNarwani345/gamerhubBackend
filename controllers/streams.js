@@ -39,7 +39,7 @@ const getStreamById = async (req, res) => {
 // Create a new stream (for streamer)
 const createStream = async (req, res) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    const { title, description, category } = req.body;
+    const { title, description, category, thumbnail } = req.body;
 
     try {
         if (!token) {
@@ -53,11 +53,18 @@ const createStream = async (req, res) => {
             return res.status(404).json({ msg: 'User not found' });
         }
 
+        // Handle path for thumbnail
+        let thumbnailPath = null;
+        if (req.file) {
+            thumbnailPath = `/uploads/${req.file.filename}`;
+        }
+
         const stream = new Stream({
             userId: user._id,
             title: title || `${user.username}'s Stream`,
             description: description || '',
             category: category || 'Gaming',
+            thumbnail: thumbnailPath || thumbnail || null,
             status: 'offline'
         });
 

@@ -3,6 +3,10 @@ module.exports = (io) => {
   const Stream = require("../models/streams");
   const User = require("../models/user");
   const Highlight = require('../models/highlight');
+  const mongoose = require('mongoose');
+
+  // Helper to validate ObjectId
+  const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
   // Store active streams and viewers
   const activeStreams = new Map();
@@ -16,6 +20,9 @@ module.exports = (io) => {
     // Streamer starts a live stream
     socket.on("startStream", async ({ streamId, userId, title, description, category }) => {
       try {
+        if (!isValidObjectId(streamId)) {
+          return socket.emit("errorMessage", "Invalid Stream ID format");
+        }
         const stream = await Stream.findByIdAndUpdate(
           streamId,
           {
@@ -34,8 +41,12 @@ module.exports = (io) => {
           return socket.emit("errorMessage", "Stream not found");
         }
 
+        // Join socket room for this stream (for chat and signaling)
+        socket.join(streamId);
+
         activeStreams.set(streamId, {
           streamerId: userId,
+          streamerSocketId: socket.id,
           startTime: new Date(),
           viewerCount: 0
         });
@@ -57,39 +68,47 @@ module.exports = (io) => {
       }
     });
 
-      // Streamer publishes video segments / stream URL
-      // Clients should handle `streamVideo` to display/update the current video source
-      socket.on('publishStreamVideo', async ({ streamId, userId, videoUrl, metadata }) => {
-        try {
-          if (!streamId || !userId || !videoUrl) {
-            return socket.emit('errorMessage', 'streamId, userId and videoUrl are required');
-          }
-
-          const stream = await Stream.findById(streamId);
-          if (!stream) return socket.emit('errorMessage', 'Stream not found');
-
-          // Broadcast video info to all viewers in the room
-          io.to(streamId).emit('streamVideo', {
-            streamId,
-            videoUrl,
-            metadata: metadata || null,
-            timestamp: Date.now()
-          });
-
-          // Optionally update stream thumbnail if provided in metadata
-          if (metadata && metadata.thumbnail) {
-            stream.thumbnail = metadata.thumbnail;
-            await stream.save();
-          }
-        } catch (err) {
-          console.error('Error publishing stream video:', err);
-          socket.emit('errorMessage', 'Failed to publish stream video');
+    // Streamer publishes video segments / stream URL
+    // Clients should handle `streamVideo` to display/update the current video source
+    socket.on('publishStreamVideo', async ({ streamId, userId, videoUrl, metadata }) => {
+      try {
+        if (!streamId || !userId || !videoUrl) {
+          return socket.emit('errorMessage', 'streamId, userId and videoUrl are required');
         }
-      });
+
+        if (!isValidObjectId(streamId)) {
+          return socket.emit("errorMessage", "Invalid Stream ID format");
+        }
+
+        const stream = await Stream.findById(streamId);
+        if (!stream) return socket.emit('errorMessage', 'Stream not found');
+
+        // Broadcast video info to all viewers in the room
+        io.to(streamId).emit('streamVideo', {
+          streamId,
+          videoUrl,
+          metadata: metadata || null,
+          timestamp: Date.now()
+        });
+
+        // Optionally update stream thumbnail if provided in metadata
+        if (metadata && metadata.thumbnail) {
+          stream.thumbnail = metadata.thumbnail;
+          await stream.save();
+        }
+      } catch (err) {
+        console.error('Error publishing stream video:', err);
+        socket.emit('errorMessage', 'Failed to publish stream video');
+      }
+    });
 
     // Viewer joins a stream
     socket.on("joinStream", async ({ streamId, userId }) => {
       try {
+        if (!isValidObjectId(streamId)) {
+          // Silent return or error message depending on UX needs
+          return socket.emit("errorMessage", "Invalid Stream ID format");
+        }
         const stream = await Stream.findById(streamId).populate("userId", "username avatar bio followers");
 
         if (!stream) {
@@ -129,11 +148,67 @@ module.exports = (io) => {
           totalComments: stream.totalComments
         });
 
+        // Send current stream data to the joining viewer so they can display it
+        io.to(socket.id).emit("streamData", {
+          streamId,
+          title: stream.title,
+          description: stream.description,
+          category: stream.category,
+          status: stream.status,
+          isActive: stream.isActive,
+          thumbnail: stream.thumbnail,
+          viewerCount: stream.viewersCount,
+          // Get video URL from active stream if available
+          videoUrl: activeStreams.has(streamId) ? 'https://www.w3schools.com/html/mov_bbb.mp4' : null
+        });
+
         console.log(`👁️ User ${userId} joined stream ${streamId}. Viewers: ${stream.viewersCount}`);
+
+        // Notify the streamer that a viewer joined (for WebRTC peer connection)
+        const streamData = activeStreams.get(streamId);
+        if (streamData && streamData.streamerSocketId) {
+          io.to(streamData.streamerSocketId).emit("viewerJoined", {
+            viewerId: userId,
+            viewerSocketId: socket.id,
+            streamId
+          });
+          console.log(`📡 Notified streamer of new viewer: ${userId}`);
+        }
       } catch (error) {
         console.error("Error joining stream:", error);
         socket.emit("errorMessage", "Failed to join stream");
       }
+    });
+
+    // ======================== WEBRTC SIGNALING ========================
+
+    // WebRTC: Relay offer from streamer to viewer
+    socket.on("webrtc-offer", ({ offer, viewerSocketId, streamId }) => {
+      console.log(`📤 Relaying WebRTC offer to viewer: ${viewerSocketId}`);
+      io.to(viewerSocketId).emit("webrtc-offer", {
+        offer,
+        streamerSocketId: socket.id,
+        streamId
+      });
+    });
+
+    // WebRTC: Relay answer from viewer to streamer
+    socket.on("webrtc-answer", ({ answer, streamerSocketId, streamId }) => {
+      console.log(`📤 Relaying WebRTC answer to streamer: ${streamerSocketId}`);
+      io.to(streamerSocketId).emit("webrtc-answer", {
+        answer,
+        viewerSocketId: socket.id,
+        streamId
+      });
+    });
+
+    // WebRTC: Relay ICE candidates between peers
+    socket.on("ice-candidate", ({ candidate, targetSocketId, streamId }) => {
+      io.to(targetSocketId).emit("ice-candidate", {
+        candidate,
+        fromSocketId: socket.id,
+        streamId
+      });
     });
 
     // Viewer leaves stream
@@ -319,31 +394,31 @@ module.exports = (io) => {
       }
     });
 
-      // Save a highlight clip (can be emitted by server-side AI or streamer client)
-      socket.on('saveHighlight', async ({ streamId, streamerId, clipUrl, thumbnail, duration, tags, generatedBy }) => {
-        try {
-          if (!streamId || !streamerId || !clipUrl) {
-            return socket.emit('errorMessage', 'streamId, streamerId and clipUrl required');
-          }
-
-          const hl = new Highlight({ streamId, streamerId, clipUrl, thumbnail, duration, tags, generatedBy: generatedBy || 'ai' });
-          await hl.save();
-
-          // Notify room and sender
-          io.to(streamId).emit('highlightSaved', {
-            highlightId: hl._id,
-            clipUrl: hl.clipUrl,
-            thumbnail: hl.thumbnail,
-            duration: hl.duration,
-            createdAt: hl.createdAt
-          });
-
-          socket.emit('highlightAck', { highlightId: hl._id });
-        } catch (err) {
-          console.error('Error saving highlight:', err);
-          socket.emit('errorMessage', 'Failed to save highlight');
+    // Save a highlight clip (can be emitted by server-side AI or streamer client)
+    socket.on('saveHighlight', async ({ streamId, streamerId, clipUrl, thumbnail, duration, tags, generatedBy }) => {
+      try {
+        if (!streamId || !streamerId || !clipUrl) {
+          return socket.emit('errorMessage', 'streamId, streamerId and clipUrl required');
         }
-      });
+
+        const hl = new Highlight({ streamId, streamerId, clipUrl, thumbnail, duration, tags, generatedBy: generatedBy || 'ai' });
+        await hl.save();
+
+        // Notify room and sender
+        io.to(streamId).emit('highlightSaved', {
+          highlightId: hl._id,
+          clipUrl: hl.clipUrl,
+          thumbnail: hl.thumbnail,
+          duration: hl.duration,
+          createdAt: hl.createdAt
+        });
+
+        socket.emit('highlightAck', { highlightId: hl._id });
+      } catch (err) {
+        console.error('Error saving highlight:', err);
+        socket.emit('errorMessage', 'Failed to save highlight');
+      }
+    });
 
     // Update message
     socket.on("updateMessage", async ({ messageId, streamId, messageText }) => {
